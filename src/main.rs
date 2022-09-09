@@ -28,6 +28,8 @@
 use std::error::Error;
 use std::fs::File;
 use std::collections::HashMap;
+use std::io;
+use std::io::BufRead;
 use serde::Deserialize;
 use serde_yaml;
 use clap::Parser;
@@ -63,14 +65,61 @@ struct Schema {
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
+    /// yaml-schema file to parse
     #[clap(value_parser)]
     name: String,
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Code Generation
+////
+
+fn comment_line<W: io::Write>(out: &mut W) -> io::Result<()> {
+    out.write(b"//\n").map(|_| ())
+}
+
+const MIT_LICENSE: &'static str = "\
+Permission is hereby granted, free of charge, to any person obtaining a copy\n\
+of this software and associated documentation files (the \"Software\"), to\n\
+deal in the Software without restriction, including without limitation the\n\
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or\n\
+sell copies of the Software, and to permit persons to whom the Software is\n\
+furnished to do so, subject to the following conditions:\n\
+\n\
+The above copyright notice and this permission notice shall be included in\n\
+all copies or substantial portions of the Software.\n\
+\n\
+THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n\
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n\
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n\
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n\
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\n\
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS\n\
+IN THE SOFTWARE.\n\
+";
+
+fn header<W: io::Write>(out: &mut W, name: &str) -> io::Result<()> {
+    comment_line(out)?;
+    out.write(format!("// {}\n", name).as_bytes())?;
+    comment_line(out)?;
+    out.write(b"// Copyright 2022, Ethan D. Twardy\n")?;
+    comment_line(out)?;
+    let license_reader = io::BufReader::new(io::Cursor::new(MIT_LICENSE));
+    for line in license_reader.lines() {
+        out.write(format!("// {}\n", line?).as_bytes())?;
+    }
+    comment_line(out)?;
+    Ok(())
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Main
+////
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let schema: Schema = serde_yaml::from_reader(File::open(&args.name)?)?;
-    println!("{:?}", schema);
+    header(&mut io::stdout(), "data.c")?;
     Ok(())
 }
 
