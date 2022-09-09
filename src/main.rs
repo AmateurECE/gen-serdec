@@ -25,8 +25,53 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ////
 
-fn main() {
-    println!("Hello, world!");
+use std::error::Error;
+use std::fs::File;
+use std::collections::HashMap;
+use serde::Deserialize;
+use serde_yaml;
+use clap::Parser;
+
+#[derive(Debug, Deserialize)]
+struct SchemaProperties {
+    #[serde(rename = "$ref")]
+    pub schema_ref: Option<String>,
+    #[serde(rename = "type")]
+    pub property_type: Option<String>,
+    pub description: Option<String>,
+    pub default: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Schema {
+    #[serde(rename = "$schema")]
+    pub schema: String,
+    pub id: String,
+    pub tag: String,
+    pub title: String,
+    pub description: String,
+
+    #[serde(rename = "type")]
+    pub schema_type: String,
+    pub properties: HashMap<String, SchemaProperties>,
+    pub required: Vec<String>,
+
+    #[serde(rename = "additionalProperties")]
+    pub additional_properties: bool,
+}
+
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(value_parser)]
+    name: String,
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+    let schema: Schema = serde_yaml::from_reader(File::open(&args.name)?)?;
+    println!("{:?}", schema);
+    Ok(())
 }
 
 ///////////////////////////////////////////////////////////////////////////////
