@@ -7,7 +7,7 @@
 //
 // CREATED:         09/09/2022
 //
-// LAST EDITED:     09/09/2022
+// LAST EDITED:     09/10/2022
 //
 // Copyright 2022, Ethan D. Twardy
 //
@@ -25,14 +25,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ////
 
-use std::error::Error;
-use std::fs::File;
-use std::collections::HashMap;
-use std::io;
-use std::io::BufRead;
+use clap::Parser;
 use serde::Deserialize;
 use serde_yaml;
-use clap::Parser;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::BufRead;
 
 #[derive(Debug, Deserialize)]
 struct SchemaProperties {
@@ -78,6 +77,10 @@ fn comment_line<W: io::Write>(out: &mut W) -> io::Result<()> {
     out.write(b"//\n").map(|_| ())
 }
 
+fn blank_line<W: io::Write>(out: &mut W) -> io::Result<()> {
+    out.write(b"\n").map(|_| ())
+}
+
 const MIT_LICENSE: &'static str = "\
 Permission is hereby granted, free of charge, to any person obtaining a copy\n\
 of this software and associated documentation files (the \"Software\"), to\n\
@@ -112,14 +115,21 @@ fn header<W: io::Write>(out: &mut W, name: &str) -> io::Result<()> {
     Ok(())
 }
 
+fn source_file<W: io::Write>(out: &mut W, name: &str) -> io::Result<()> {
+    header(out, name)?;
+    blank_line(out)?;
+    Ok(())
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Main
 ////
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let schema: Schema = serde_yaml::from_reader(File::open(&args.name)?)?;
-    header(&mut io::stdout(), "data.c")?;
+    let mut stdout = io::stdout().lock();
+    source_file(&mut stdout, "data.c")?;
     Ok(())
 }
 
