@@ -27,7 +27,6 @@
 
 use clap::Parser;
 use serde::Deserialize;
-use serde_yaml;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
@@ -81,7 +80,7 @@ fn blank_line<W: io::Write>(out: &mut W) -> io::Result<()> {
     out.write(b"\n").map(|_| ())
 }
 
-const MIT_LICENSE: &'static str = "\
+const MIT_LICENSE: &str = "\
 Permission is hereby granted, free of charge, to any person obtaining a copy\n\
 of this software and associated documentation files (the \"Software\"), to\n\
 deal in the Software without restriction, including without limitation the\n\
