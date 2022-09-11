@@ -31,13 +31,18 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
+use std::path::Path;
+
+///////////////////////////////////////////////////////////////////////////////
+// Type Definitions
+////
 
 #[derive(Debug, Deserialize)]
 struct SchemaProperties {
     #[serde(rename = "$ref")]
     pub schema_ref: Option<String>,
     #[serde(rename = "type")]
-    pub property_type: Option<String>,
+    pub data_type: Option<String>,
     pub description: Option<String>,
     pub default: Option<String>,
 }
@@ -60,6 +65,13 @@ struct Schema {
     pub additional_properties: bool,
 }
 
+#[derive(Debug)]
+struct DataDefinition {
+    pub identifier: String,
+    pub prefix: String,
+    pub schema: Schema,
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -71,6 +83,18 @@ struct Args {
 ///////////////////////////////////////////////////////////////////////////////
 // Code Generation
 ////
+
+fn stem_to_prefix(stem: &str) -> String {
+    stem.to_string().replace("-", "_")
+}
+
+fn stem_to_identifier(stem: &str) -> String {
+    stem.to_string().split("-").map(|word| {
+        let mut chars = word.chars().collect::<Vec<char>>();
+        chars[0] = chars[0].to_uppercase().nth(0).unwrap();
+        chars.into_iter().collect::<String>()
+    }).collect::<String>()
+}
 
 fn comment_line<W: io::Write>(out: &mut W) -> io::Result<()> {
     out.write(b"//\n").map(|_| ())
@@ -114,10 +138,33 @@ fn header<W: io::Write>(out: &mut W, name: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn source_file<W: io::Write>(out: &mut W, name: &str) -> io::Result<()> {
+fn preamble<W: io::Write>(out: &mut W) -> io::Result<()> {
+    out.write(b"#include <yaml/yaml.h>\n").map(|_| ())
+}
+
+fn deserialize_definitions<W: io::Write>(
+    out: &mut W,
+    definition: &DataDefinition,
+) -> io::Result<()> {
+    out.write(format!(
+        "int {}_{}_from_{}_{}(const char* string, {}* data) {{\n",
+        &definition.prefix, "deserialize", "yaml", "string",
+        &definition.identifier).as_bytes()
+    )?;
+    out.write(b"}\n");
+    Ok(())
+}
+
+fn source_file<W: io::Write>(
+    out: &mut W,
+    name: &str,
+    definition: &DataDefinition,
+) -> io::Result<()> {
     header(out, name)?;
     blank_line(out)?;
-    Ok(())
+    preamble(out)?;
+    blank_line(out)?;
+    deserialize_definitions(out, definition)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -127,8 +174,17 @@ fn source_file<W: io::Write>(out: &mut W, name: &str) -> io::Result<()> {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let schema: Schema = serde_yaml::from_reader(File::open(&args.name)?)?;
+    let stem = Path::new(&args.name).file_stem().unwrap().to_os_string()
+        .into_string().unwrap();
+    let data = DataDefinition {
+        prefix: stem_to_prefix(&stem),
+        identifier: stem_to_identifier(&stem),
+        schema,
+    };
+
+    let source_name = stem + ".c";
     let mut stdout = io::stdout().lock();
-    source_file(&mut stdout, "data.c")?;
+    source_file(&mut stdout, &source_name, &data)?;
     Ok(())
 }
 

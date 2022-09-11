@@ -1,8 +1,0 @@
-%YAML 1.1
----
-include: standard
-deserialize: |
-  static void serdec_deserialize_int(SerdecYamlContext* {{context}},
-                                     yaml_t* {{element}}) {
-      stuff();
-  }
